@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.dataagent</groupId>
+    <artifactId>data-agent</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>临床研究数据处理 Agent</description>
+
+    <modules>
+        <module>data-agent-common</module>
+        <module>data-agent-business</module>
+    </modules>
+
+    <properties>
+        <!-- revision + flatten-maven-plugin：子模块不用重复写版本号，改版本只改这一行 -->
+        <revision>0.0.1-SNAPSHOT</revision>
+        <project.sourceEncoding>UTF-8</project.sourceEncoding>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <java.version>17</java.version>
+
+        <spring.boot.version>3.5.6</spring.boot.version>
+        <spring-ai.version>1.1.0</spring-ai.version>
+        <spring-ai.alibaba.version>1.1.2.0</spring-ai.alibaba.version>
+
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <hutool.version>5.8.25</hutool.version>
+        <lombok.version>1.18.40</lombok.version>
+
+        <maven-compiler.version>3.8.1</maven-compiler.version>
+        <maven-resources.version>3.2.0</maven-resources.version>
+        <flatten-maven.version>1.4.1</flatten-maven.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 三个 BOM：只声明版本，不引入依赖。子模块写 dependency 时不带 version -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud.ai</groupId>
+                <artifactId>spring-ai-alibaba-bom</artifactId>
+                <version>${spring-ai.alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 不在 BOM 里的，单独管理版本 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+
+            <!-- 本项目内部模块 -->
+            <dependency>
+                <groupId>org.dataagent</groupId>
+                <artifactId>data-agent-common</artifactId>
+                <version>${revision}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- 所有模块都要 lombok，提到父 pom -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler.version}</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <!--
+                      保留方法参数名到 class 文件。
+                      不加这一项，Spring 无法从反射拿到 @RequestParam / @PathVariable
+                      的参数名，运行时报
+                      "Name for argument of type [int] not specified"。
+
+                      spring-boot-starter-parent 默认开了这个开关，
+                      但本项目用的是 import BOM 的方式（父 pom 不是 starter-parent），
+                      因此不继承它的任何插件配置，必须自己显式打开。
+                    -->
+                    <parameters>true</parameters>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>${maven-resources.version}</version>
+                <configuration>
+                    <encoding>${project.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!-- 把 ${revision} 占位符在打包时替换成真实版本号 -->
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten-maven.version}</version>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals><goal>flatten</goal></goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals><goal>clean</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

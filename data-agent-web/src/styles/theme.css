@@ -1,0 +1,271 @@
+/*
+ * 设计令牌。取自 dataviz 参考调色板，两个模式都跑过 validate_palette.js：
+ *   light  5 slots  ALL PASS（3 项 contrast WARN → 折线图带直接标签 + 同页表格视图）
+ *   dark   5 slots  ALL PASS
+ *
+ * 所有颜色都在 :root 上给出完整的浅色定义，深色只重定义 token，
+ * 不给任何颜色「唯一定义在 media 块里」。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 面 */
+  --surface-1: #fcfcfb;      /* 卡片/图表面 */
+  --plane: #f9f9f7;          /* 页面底 */
+  --surface-2: #f2f2ee;      /* 次级块、表头 */
+
+  /* 墨 */
+  --ink-1: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #898781;
+
+  /* 线 */
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+
+  /* 分类序列（固定顺序，永不循环） */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+
+  /* 顺序色（单一色相，浅→深）——用于「量」的编码 */
+  --seq-100: #cde2fb;
+  --seq-250: #86b6ef;
+  --seq-400: #3987e5;
+  --seq-450: #2a78d6;
+  --seq-550: #1c5cab;
+  --seq-650: #104281;
+
+  /* 状态色（固定，永不当作第 6 个序列用；必须配图标 + 文字） */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --success-text: #006300;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --font: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --surface-2: #232322;
+
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #898781;
+
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+
+    --seq-100: #104281;
+    --seq-250: #184f95;
+    --seq-400: #256abf;
+    --seq-450: #2a78d6;
+    --seq-550: #3987e5;
+    --seq-650: #5598e7;
+
+    --success-text: #0ca30c;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-1: #1a1a19;
+  --plane: #0d0d0d;
+  --surface-2: #232322;
+
+  --ink-1: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-muted: #898781;
+
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+
+  --seq-100: #104281;
+  --seq-250: #184f95;
+  --seq-400: #256abf;
+  --seq-450: #2a78d6;
+  --seq-550: #3987e5;
+  --seq-650: #5598e7;
+
+  --success-text: #0ca30c;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--plane);
+  color: var(--ink-1);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--series-1); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; line-height: 1.35; }
+h1 { font-size: 20px; }
+h2 { font-size: 16px; }
+h3 { font-size: 14px; }
+
+code, pre, .mono { font-family: var(--mono); }
+
+/* ── 通用块 ─────────────────────────────────────── */
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.card-head .hint { color: var(--ink-muted); font-size: 12px; }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1 1 auto; min-width: 0; }
+
+.muted { color: var(--ink-muted); }
+.secondary { color: var(--ink-2); }
+.small { font-size: 12px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── 表单 ───────────────────────────────────────── */
+
+input[type="text"], input[type="number"], textarea, select {
+  font: inherit;
+  color: var(--ink-1);
+  background: var(--surface-1);
+  border: 1px solid var(--axis);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  width: 100%;
+}
+textarea { resize: vertical; line-height: 1.6; }
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--series-1);
+  outline-offset: -1px;
+  border-color: var(--series-1);
+}
+
+label.field { display: block; }
+label.field > span {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-bottom: 5px;
+}
+
+button {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink-1);
+  background: var(--surface-2);
+  border: 1px solid var(--axis);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ink-muted); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.primary {
+  background: var(--series-1);
+  border-color: var(--series-1);
+  color: #fff;
+}
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button.ghost { background: transparent; }
+
+/* ── 表格 ───────────────────────────────────────── */
+
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+table.data th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--axis);
+  white-space: nowrap;
+}
+table.data td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--grid);
+  vertical-align: top;
+}
+table.data tbody tr:hover { background: var(--surface-2); }
+table.data td.num, table.data th.num { text-align: right; }
+
+.scroll-x { overflow-x: auto; }
+
+/* ── 徽标 ───────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+
+pre.json {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+  max-height: 420px;
+  overflow-y: auto;
+}

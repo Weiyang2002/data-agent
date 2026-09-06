@@ -1,0 +1,33 @@
+# Python 工具服务本地配置。
+# 环境变量优先级高于本文件（见 config.py 的 config_value）。
+
+dataTools:
+  service:
+    host: "0.0.0.0"
+    port: 18081
+
+  sandbox:
+    # 沙箱工作根目录，每个任务在其下建独立子目录
+    workRoot: "${DATA_AGENT_SANDBOX_ROOT:./.sandbox}"
+    # 默认超时（秒），Java 侧会在请求里覆盖
+    defaultTimeoutSeconds: 120
+    # 默认内存上限（MB）
+    defaultMemoryLimitMb: 2048
+
+  dataset:
+    # 评测数据集输出目录
+    outputRoot: "${DATA_AGENT_EVAL_ROOT:./.eval}"
+
+  profile:
+    # 文本列取值枚举上限。超过此基数的列不枚举取值——
+    # 既控制返回体体积，也保证患者ID这类标识列永远不会出现在返回体里。
+    textValueTopN: 50
+    # 时间戳全零告警阈值：00:00:00 占比超过此值即报分布级异常
+    timestampAllZeroThreshold: 0.5
+    # 极高缺失率告警阈值。注意只报告事实，不推断缺失语义——
+    # 「隐含阴性还是真实缺失」是临床判断，由 Java 侧决定要不要澄清。
+    highMissingThreshold: 0.9
+    # 连续空白段告警倍数：观测到的最长连续空白段超过
+    # 「随机缺失下的期望长度 × 本系数」才告警。
+    # 用期望值做基准而不是固定行数，阈值才能随各列缺失率自动缩放。
+    nullRunFactor: 5

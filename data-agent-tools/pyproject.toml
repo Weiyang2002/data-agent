@@ -1,0 +1,15 @@
+[project]
+name = "data-agent-tools"
+version = "0.1.0"
+description = "Python 数据处理工具服务：画像 / 沙箱执行 / 确定性校验 / 缺陷注入"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pandas==2.2.3",
+    "pyarrow==18.1.0",
+    "numpy==2.2.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

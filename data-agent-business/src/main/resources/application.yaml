@@ -1,0 +1,121 @@
+server:
+  port: 9090
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: data-agent-business
+
+  profiles:
+    # 真实密钥放在 application-local.yaml（已被 .gitignore 忽略），
+    # 本文件只保留占位符，可以安全提交。
+    # profile 文件缺失时 Spring Boot 不报错，克隆仓库的人不受影响。
+    active: ${DATA_AGENT_PROFILE:local}
+
+  autoconfigure:
+    # spring-ai-starter-model-openai 会把 chat/embedding/image/audio/moderation
+    # 六种模型全部自动装配，每一种都在启动时强制校验 API Key。
+    # 本项目只用 chat：
+    #   - embedding 不用，因为知识库走 SQL 精确检索
+    #   - image/audio/moderation 与场景无关（v1 明确不做多模态）
+    # 不排除的后果：启动时因 audio 模型缺 Key 直接失败，
+    # 且平白多出 5 个用不到的 Bean。
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/data_agent?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DATA_AGENT_DB_USERNAME:root}
+    password: ${DATA_AGENT_DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: data-agent-hikari
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  ai:
+    retry:
+      # 吸收 DashScope 网关偶发的 EOF、连接重置、429/5xx。
+      # 不重试 4xx 参数错误——那是代码问题，重试只会放大浪费。
+      max-attempts: ${DATA_AGENT_AI_RETRY_MAX_ATTEMPTS:4}
+      backoff:
+        initial-interval: 1500ms
+        multiplier: 2
+        max-interval: 8000ms
+    openai:
+      # 「OpenAI 兼容协议」是当前国产模型的事实标准：
+      # DeepSeek、智谱 GLM、通义 DashScope 都提供兼容端点，
+      # 所以用 spring-ai-starter-model-openai 一套代码就能切换供应商，
+      # 只改 base-url / api-key / model 三个配置，不动任何 Java 代码。
+      # 这本身就是「模型分级路由」（背景文档 4.2）的前置条件。
+      base-url: ${DATA_AGENT_MODEL_BASE_URL:https://api.deepseek.com}
+      # Spring AI 对 api-key 是硬校验（空串也会启动失败），
+      # 所以这里给一个一眼能看出是假的占位符，让没配密钥时仍能启动验证链路。
+      # StartupCheckRunner 会识别它并打 WARN，不会静默失效。
+      api-key: ${DATA_AGENT_MODEL_API_KEY:PLACEHOLDER-SET-DATA_AGENT_MODEL_API_KEY}
+      chat:
+        # 兼容端点的路径不一定都是 /v1/chat/completions（智谱就不是），
+        # 所以单独抽成配置项。
+        completions-path: ${DATA_AGENT_MODEL_COMPLETIONS_PATH:/v1/chat/completions}
+        options:
+          model: ${DATA_AGENT_CHAT_MODEL:deepseek-chat}
+          # 列名抽取 0 / 代码生成 0.2 / 常识校验 0.5
+          temperature: 0.2
+          maxTokens: 4096
+      # 不配 embedding：其自动配置已在上方 autoconfigure.exclude 中排除。
+      # 知识库检索走 SQL 精确查询，本项目 M0–M7 全程不需要向量化。
+
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    default-property-inclusion: non_null
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  configuration:
+    local-cache-scope: statement
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  # Python 工具服务
+  data-tools:
+    base-url: ${DATA_AGENT_TOOLS_BASE_URL:http://127.0.0.1:18081}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 10000
+    profile-read-timeout-ms: 600000
+    execute-read-timeout-ms: 300000
+    validate-read-timeout-ms: 120000
+    dataset-read-timeout-ms: 300000
+
+  # Agent 行为参数（M4 收敛时会调这些值并观察指标变化）
+  clean-agent:
+    max-repair-attempts: 3
+    max-model-calls-per-run: 20
+    max-model-calls-per-thread: 60
+    max-tool-calls-per-run: 15
+    sandbox-timeout-seconds: 120
+    sandbox-memory-limit-mb: 2048
+    text-value-top-n: 50
+    # 关掉后可在无 MySQL 环境启动，但澄清中断恢复不可用
+    checkpoint-enabled: ${DATA_AGENT_CHECKPOINT_ENABLED:true}
+
+logging:
+  level:
+    org.dataagent: DEBUG
+    org.springframework.ai: INFO
