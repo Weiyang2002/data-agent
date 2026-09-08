@@ -7,8 +7,12 @@ dataTools:
     port: 18081
 
   sandbox:
-    # 沙箱工作根目录，每个任务在其下建独立子目录
-    workRoot: "${DATA_AGENT_SANDBOX_ROOT:./.sandbox}"
+    # 沙箱工作根目录，每个任务在其下建独立子目录。
+    # 必须放在 data-agent-tools/ 之外：IDEA 的 uvicorn 运行配置带 --reload，
+    # 默认监听工作目录下的 *.py。若沙箱写在目录内，每次任务写脚本都会触发
+    # 服务重启，重启信号在 Windows 上会打到子进程所在的控制台进程组，
+    # 把正在 import numpy 的沙箱子进程打断，报错会伪装成 pandas 环境损坏。
+    workRoot: "${DATA_AGENT_SANDBOX_ROOT:../.sandbox}"
     # 默认超时（秒），Java 侧会在请求里覆盖
     defaultTimeoutSeconds: 120
     # 默认内存上限（MB）

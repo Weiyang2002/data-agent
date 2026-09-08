@@ -50,8 +50,9 @@ public class DistributionValidator {
             finding.setSeverity(level == FindingLevel.CLARIFY ? "INFO" : "WARN");
             report.add(finding);
         }
-        // 结构级（连续空白段）由同一次调用一并跑完，一起标记为已执行
+        // 结构级（连续空白段）与待澄清级（高缺失率）都由同一次调用一并跑完，一起标记为已执行
         report.markExecuted(FindingLevel.STRUCTURE);
+        report.markExecuted(FindingLevel.CLARIFY);
         log.info("分布级校验完成：{} 项发现", response.getFindings().size());
         return response;
     }
