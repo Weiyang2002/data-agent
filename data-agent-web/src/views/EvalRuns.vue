@@ -71,9 +71,6 @@ function msFormat(value) {
   return (value / 1000).toFixed(0) + 's'
 }
 
-const RUN_CURL = `curl --noproxy '*' -X POST http://localhost:9090/api/eval/run \\
-     -H 'Content-Type: application/json; charset=utf-8' \\
-     --data-binary @doc/进度/eval-runs/m5-r5-token.json`
 </script>
 
 <template>
@@ -84,8 +81,7 @@ const RUN_CURL = `curl --noproxy '*' -X POST http://localhost:9090/api/eval/run 
           <h1>评测序列</h1>
           <p class="secondary" style="margin: 6px 0 0; max-width: 80ch;">
             同一份数据、同一个 seed、同一批 32 个用例，改一处 → 重跑 → 看指标怎么动。
-            <strong>每一轮都必须写 changeNote</strong> —— 没有它，这串数字涨了不知道是谁的功劳，
-            跌了不知道该回滚哪一处。悬停曲线上的点可以看到那一轮改了什么。
+            悬停曲线上的点可以看到那一轮改了什么。
           </p>
         </div>
         <button class="ghost" @click="load">刷新</button>
@@ -94,7 +90,7 @@ const RUN_CURL = `curl --noproxy '*' -X POST http://localhost:9090/api/eval/run 
       <div v-if="state.loading" class="muted">读取中…</div>
       <div v-else-if="state.error" class="error">{{ state.error }}</div>
       <div v-else-if="!runs.length" class="muted">
-        一轮评测都还没跑过。用下面那条 curl 发起第一轮。
+        一轮评测都还没跑过。
       </div>
 
       <template v-else>
@@ -102,11 +98,6 @@ const RUN_CURL = `curl --noproxy '*' -X POST http://localhost:9090/api/eval/run 
         <LineChart :series="rateSeries" :x-labels="xLabels" :x-notes="xNotes"
                    :y-min="0" :y-max="1" :height="280" />
 
-        <!--
-          图正下方就是同一份数据的表格。这不是冗余：浅色模式下有三个色槽
-          对底色的对比度低于 3:1，dataviz 规范要求配「可见的直接标签或表格视图」，
-          relief 由这张表承担。
-        -->
         <div class="scroll-x" style="margin-top: 16px;">
           <table class="data">
             <thead>
@@ -167,23 +158,6 @@ const RUN_CURL = `curl --noproxy '*' -X POST http://localhost:9090/api/eval/run 
       </template>
     </div>
 
-    <div class="card">
-      <div class="card-head">
-        <h2>怎么发起新的一轮</h2>
-        <span class="hint">这里刻意没有按钮</span>
-      </div>
-      <p class="secondary" style="max-width: 80ch;">
-        <code>POST /api/eval/run</code> 是十几分钟的阻塞请求、约 28 万 Token，且 <code>changeNote</code> 必填。
-        把它做成一个按钮，等于<strong>把一次严肃的实验降格成一次点击</strong> ——
-        而 changeNote 这条约束的存在恰恰是为了防止这件事。
-      </p>
-      <pre class="json">{{ RUN_CURL }}</pre>
-      <p class="small muted">
-        请求体一定要用文件 <code>--data-binary @file</code>：Windows 控制台按 GBK 发中文，
-        直接 <code>-d</code> 带中文会得到 <code>Invalid UTF-8 middle byte</code>。
-        <code>--noproxy '*'</code> 也不能省，本机全局代理会把 localhost 变成空 503。
-      </p>
-    </div>
   </div>
 </template>
 

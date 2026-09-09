@@ -174,9 +174,8 @@ onMounted(async () => {
 
       <h2 class="sec-first">① 数据集</h2>
       <p class="small muted" style="margin: 4px 0 12px;">
-        ⚠ <code>datasetPath</code> 是<strong>服务端本地路径</strong>，不是上传 ——
-        这里没有「选择文件」按钮是设计如此，文件上传排在 Phase 1。
-        先按下面的参数生成一份，或直接手填一个服务端已有的 parquet 路径。
+        ⚠ <code>datasetPath</code> 是<strong>服务端本地路径</strong>，不是上传。
+        先按下面的参数生成一份，或直接手填服务端上已有的 parquet 路径。
       </p>
 
       <div class="row" style="align-items: flex-end;">
@@ -195,7 +194,7 @@ onMounted(async () => {
         <button class="primary" :disabled="dataset.loading" @click="generateDataset">
           {{ dataset.loading ? '生成中…' : '生成全缺陷数据集' }}
         </button>
-        <span class="small muted">默认 20000 / 1200 / 42，与 R1–R5 各轮评测一致</span>
+        <span class="small muted">默认 20000 / 1200 / 42</span>
       </div>
 
       <div v-if="dataset.error" class="error" style="margin-top: 12px;">{{ dataset.error }}</div>
@@ -298,8 +297,7 @@ onMounted(async () => {
         </button>
         <button v-if="task.loading" class="ghost" @click="cancelTask">取消</button>
         <span class="small muted">
-          实测 8–30 秒（画像 / 规划 / 代码生成 / 沙箱执行 / 三层校验，其中 4 次模型调用）。
-          <strong>前端不设超时</strong> —— 设了就会在最慢的那几次上报一个假失败
+          实测 8–30 秒（画像 / 规划 / 代码生成 / 沙箱执行 / 三层校验，其中 4 次模型调用）
         </span>
       </div>
 
@@ -322,9 +320,8 @@ onMounted(async () => {
       </div>
 
       <p v-if="task.data.status === 'CLARIFYING'" class="note-clarify small secondary">
-        状态是 <code>CLARIFYING</code>：有需要临床判断的决策点，系统<strong>没有替你做主</strong>。
-        下面「方案」里会出现未执行的步骤，每一条都带着为什么没执行 ——
-        <strong>那是正确行为，不是失败</strong>。
+        状态是 <code>CLARIFYING</code>：有需要临床判断的决策点等待答复。
+        下面「方案」里未执行的步骤都附了原因，<strong>是正确行为，不是失败</strong>。
       </p>
 
       <!-- ① 画像 -->
@@ -335,8 +332,7 @@ onMounted(async () => {
       </div>
       <p v-if="task.data.profileNarrative" class="narrative">{{ task.data.profileNarrative }}</p>
       <p v-else class="narrative empty">
-        LLM 归纳未产出（返回空串）。下面的确定性检出不受影响 ——
-        归纳是给人读的一层包装，不是判据。
+        LLM 归纳未产出（返回空串）。下面的确定性检出不受影响。
       </p>
 
       <div v-if="task.data.profileAnomalies?.length" class="scroll-x">
@@ -398,7 +394,7 @@ onMounted(async () => {
       <!-- ③ 澄清 -->
       <h3 class="sec">
         ③ 澄清
-        <span class="small muted">按 coverageRatio 降序，前端不重排 —— 医生从上往下答，随时停都不亏</span>
+        <span class="small muted">按影响数据覆盖率降序，可以从上往下答，随时停下</span>
       </h3>
       <template v-if="task.data.clarifications?.length">
         <div v-for="item in task.data.clarifications" :key="item.clarifyCode" class="clarify">
@@ -427,7 +423,6 @@ onMounted(async () => {
         <p class="small muted resume-note">
           ⚠ 这里没有「回答并继续」的输入框，因为<strong>后端的澄清答复回传接口还没写</strong>
           （<code>PipelineMode.CLARIFY_RESUME</code> 枚举值已留好，实现未做）。
-          做一个假输入框会让人以为答完就能接着跑 —— 如实标注比好看重要。
         </p>
       </template>
       <p v-else class="small muted">本次没有澄清项：需求涉及的决策点在知识库里都有唯一依据。</p>
@@ -435,8 +430,7 @@ onMounted(async () => {
       <!-- ④ 校验 -->
       <h3 class="sec">④ 校验</h3>
       <p class="small muted" style="margin: 0 0 8px;">
-        先看这张矩阵，再看下面的发现：一个空的发现列表可能是「查过没问题」，
-        也可能是「压根没查」，两者在结果里必须长得不一样。
+        先看这张矩阵：空的发现列表既可能是「查过没问题」，也可能是「压根没查」。
       </p>
       <div class="scroll-x">
         <table class="data">
@@ -455,7 +449,6 @@ onMounted(async () => {
                 <span v-if="level.contradiction" class="contradiction">
                   ⚠ 口径矛盾：这一层标着「没查」，却挂着 {{ level.count }} 条该层的发现。
                   后端只把执行标记打在了产出它的那一层上，这一层漏标了。
-                  <strong>不替它圆成「查过」</strong> —— 这正是这张矩阵要抓的东西。
                 </span>
                 <template v-else-if="!level.executed">
                   {{ level.skipReason || '（后端未给出原因）' }}
@@ -517,7 +510,7 @@ onMounted(async () => {
     <div v-if="recentTasks.length" class="card">
       <div class="card-head">
         <h2>最近跑过的任务</h2>
-        <span class="hint">本机 localStorage —— 后端没有「任务列表」接口，也不为此加一个</span>
+        <span class="hint">记在本机浏览器里</span>
       </div>
       <div class="scroll-x">
         <table class="data">

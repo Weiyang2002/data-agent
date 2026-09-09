@@ -106,7 +106,7 @@ const closures = computed(() => {
     right: data.totalCostMillis || 0,
     unit: 'ms',
     why: '不加区分地把 ' + (data.stages?.length || 0) + ' 个阶段全部求和会得到 '
-      + allSum.toLocaleString('zh-CN') + ' ms（子阶段耗时已含在父阶段里），而这个数字看起来同样合理'
+      + allSum.toLocaleString('zh-CN') + ' ms（子阶段耗时已含在父阶段里）'
   })
   return out
 })
@@ -206,7 +206,7 @@ function intText(value) {
       <!-- 阶段流水 -->
       <div class="card">
         <div class="card-head">
-          <h2>阶段流水（排查用）</h2>
+          <h2>阶段流水</h2>
           <span class="hint">按发生顺序，depth = 1 是嵌在上一个顶层阶段里的子阶段</span>
         </div>
 
@@ -228,9 +228,7 @@ function intText(value) {
         </div>
 
         <p class="small muted" style="margin-top: 10px;">
-          条的宽度是<strong>时长</strong>，不是时间轴上的位置：<code>task_stage.start_time</code>
-          是 DATETIME、只到秒，而整条链路才 8–10 秒 —— 拿它当横轴会画出一串对不齐的方块，
-          <strong>图形精度高于数据精度是一种看不出来的谎</strong>。
+          条的宽度是<strong>时长</strong>，不是时间轴上的位置。
         </p>
 
         <div v-if="trace.stages.some(row => row.summary || row.errorMsg)"
@@ -251,7 +249,7 @@ function intText(value) {
       <!-- Token 账 -->
       <div class="card">
         <div class="card-head">
-          <h2>Token 按阶段（成本分析用）</h2>
+          <h2>Token 按阶段</h2>
           <span class="hint">每行只记自身，不含子阶段 —— 所以这一列求和 = 任务总量</span>
         </div>
 
@@ -292,8 +290,7 @@ function intText(value) {
           </div>
         </template>
         <p v-else class="muted">
-          这个任务没有 Token 账本 —— 它要么跑在 M5 埋点之前，要么账本表没建。
-          <strong>这里显示的是「没有这个数据」，不是 0</strong>。
+          这个任务没有 Token 账本。<strong>这里显示的是「没有这个数据」，不是 0</strong>。
         </p>
       </div>
 
@@ -301,7 +298,7 @@ function intText(value) {
       <div class="card">
         <div class="card-head">
           <h2>三条闭合性质</h2>
-          <span class="hint">算不闭合就把差值摆出来 —— 这是延迟口径唯一的探针</span>
+          <span class="hint">算不闭合就把差值摆出来</span>
         </div>
 
         <div v-for="(check, index) in sumChecks" :key="index" class="closure">

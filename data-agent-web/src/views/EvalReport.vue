@@ -164,8 +164,7 @@ function flagKind(value) {
         <p class="small secondary" style="margin: 6px 0 0;">
           「本轮测不准的东西」这一段只在 <code>POST /api/eval/run</code> 的返回体里，
           <strong>不写数据库</strong>，所以这一页拿不到它。
-          这里显示的是<strong>没有这个数据</strong>，不是「本轮没有 caveats」——
-          后者会让人把「没测」读成「测了且通过」，而那正是指标表最危险的读法。
+          这里显示的是<strong>没有这个数据</strong>，不是「本轮没有 caveats」。
           要看它，翻那一轮长请求的输出，或重跑一轮。
         </p>
       </div>
@@ -197,9 +196,6 @@ function flagKind(value) {
       <div class="card">
         <div class="card-head">
           <h2>指标</h2>
-          <span class="hint">
-            口径文案由前端内置（后端不落库），权威在 <code>doc/学习文档/M3-基线指标.md</code>
-          </span>
         </div>
         <div class="metric-grid">
           <div v-for="item in metrics" :key="item.label" class="metric">
@@ -234,7 +230,7 @@ function flagKind(value) {
       <div class="card">
         <div class="card-head">
           <h2>分层检出率</h2>
-          <span class="hint">四层分列，不合并成一个总检出率</span>
+          <span class="hint">四层分列</span>
         </div>
         <BarMeter :rows="detectionRows" :max="1" label-width="150px" />
         <dl class="level-notes small">
@@ -244,9 +240,7 @@ function flagKind(value) {
           </template>
         </dl>
         <p class="small muted">
-          逐层下降的曲线<strong>是发现，不是失败</strong>：它量的是确定性代码能覆盖到哪里、
-          从哪里开始需要 LLM、以及需要 LLM 的地方它到底行不行。
-          一个如实报出来的常识级低值，比一个合并出来的 95% 总检出率有信息量得多。
+          逐层下降的曲线<strong>是发现，不是失败</strong>：它量的是能力边界落在哪一层。
         </p>
       </div>
 
@@ -254,7 +248,7 @@ function flagKind(value) {
       <div class="card">
         <div class="card-head">
           <h2>失败归因</h2>
-          <span class="hint">由 {{ results.length }} 条单用例结果前端聚合，不是后端快照</span>
+          <span class="hint">由 {{ results.length }} 条单用例结果聚合</span>
         </div>
         <BarMeter :rows="histogramRows" label-width="190px" />
         <div class="scroll-x" style="margin-top: 14px;">
@@ -292,7 +286,7 @@ function flagKind(value) {
             只看未通过
           </label>
           <span class="small muted" style="align-self: flex-end; padding-bottom: 8px;">
-            只给筛选、不给点表头排序 —— 一旦能任意重排，「按 caseId 顺序」这个口径就没了
+            按 caseId 原序
           </span>
         </div>
 

@@ -18,22 +18,22 @@ const PRESETS = [
   {
     column: '体温', ruleType: 'VALIDITY',
     expect: 'RESOLVED',
-    why: '命中唯一一条规则，系统自动决定，并把 ruleId 记为依据'
+    why: '命中唯一一条规则，自动决定，ruleId 记为依据'
   },
   {
     column: '体温', ruleType: 'SEVERITY_SCORING',
     expect: 'AMBIGUOUS',
-    why: 'NEWS / MEWS / SEWS 三套标准同时命中。系统不替医生挑一条，转澄清'
+    why: 'NEWS / MEWS / SEWS 三套标准同时命中，转澄清由医生选择'
   },
   {
     column: '升压药', ruleType: 'MISSING_SEMANTICS',
     expect: 'NO_EVIDENCE',
-    why: '查不到就短路。向量检索在这里一定会返回「最相似」的几条，而最相似不等于有依据'
+    why: '知识库无此项记录，短路返回无依据，不继续推断'
   },
   {
     column: 'T', ruleType: 'VALIDITY',
     expect: 'RESOLVED',
-    why: '别名对齐：T → 体温。列名归一在检索层做，不靠模型猜'
+    why: '别名对齐：T → 体温，与第一条命中同一规则'
   }
 ]
 
@@ -71,9 +71,7 @@ onMounted(runPresets)
         <div>
           <h1>知识库检索：三种结局</h1>
           <p class="secondary" style="margin: 6px 0 0; max-width: 76ch;">
-            本项目的 RAG 全部存储就是一张 MySQL 表 <code>data_agent_knowledge_rule</code>，
-            走 SQL 精确查询，<strong>没有向量库、没有多路召回</strong>。
-            判据只有一条：命中条数。0 条 → 短路返回无依据；1 条 → 自动决定；
+            判据只有一条：命中条数。0 条 → 返回无依据；1 条 → 自动决定；
             多条 → 触发澄清。<strong>任何情况下不猜测。</strong>
           </p>
         </div>
@@ -142,8 +140,8 @@ onMounted(runPresets)
           冲突来源：{{ probe.data.sources.join(' / ') }}
         </div>
         <p v-if="probe.data.hitCount === 0" class="small muted" style="margin: 10px 0 0;">
-          注意：这里的 0 条是<strong>正确行为</strong>，不是数据缺失。
-          升压药 / 意识 / 氧疗三列的缺失语义需要临床判断，知识库刻意没录。
+          这里的 0 条是<strong>正确行为</strong>，不是查询失败：
+          该项没有可引用的规则，系统不会推断。
         </p>
       </div>
     </div>

@@ -52,7 +52,6 @@ onMounted(() => { applyTheme(); checkHealth() })
         <span class="mark" aria-hidden="true">◧</span>
         <div>
           <div class="name">临床研究数据处理 Agent</div>
-          <div class="tag muted small">Java 编排 · Python 确定性工具箱 · 知识库走 SQL 精确检索</div>
         </div>
       </div>
 
@@ -103,7 +102,6 @@ onMounted(() => { applyTheme(); checkHealth() })
 .brand { display: flex; align-items: center; gap: 10px; }
 .mark { font-size: 22px; color: var(--series-1); }
 .name { font-weight: 600; font-size: 15px; }
-.tag { display: block; }
 
 nav { display: flex; gap: 4px; flex: 1 1 auto; }
 nav a {

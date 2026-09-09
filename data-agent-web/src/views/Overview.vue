@@ -24,6 +24,15 @@ const runs = ref({ data: null, error: null })
 
 const latest = computed(() => runs.value.data?.[0] ?? null)
 
+/**
+ * 总览只给 changeNote 的摘要。它是后端 data_agent_eval_run.change_note 的原文，
+ * 一轮的完整改动记录有上千字，全文在评测报告页。
+ */
+const latestChangeBrief = computed(() => {
+  const text = (latest.value?.changeNote ?? '').trim()
+  return text.length > 110 ? text.slice(0, 110) + '…' : text
+})
+
 /** 冒烟四项：字符串里带 FAILED 前缀就是失败，是后端 all() 的约定 */
 function smokeState(value) {
   if (value === null || value === undefined) return 'FAILED'
@@ -49,41 +58,10 @@ onMounted(async () => {
     <div class="card">
       <h1>临床研究数据处理 Agent</h1>
       <p class="secondary lede">
-        医生用自然语言描述需求，系统理解数据结构、检索院内规范、生成并沙箱执行 Python 脚本、
-        三层校验结果，并对<strong>需要临床判断的决策点主动澄清</strong>。
-        服务对象是有领域判断力但不写代码的临床研究者。
+        用自然语言描述数据处理需求，系统完成画像、规划、沙箱执行与三层校验，
+        并对<strong>需要临床判断的决策点主动澄清</strong>。
       </p>
 
-      <div class="boundary">
-        <div class="bd">
-          <h3>Java 拥有编排主链路</h3>
-          <p class="small secondary">
-            会话状态、Agent 调度、知识库检索、澄清判定、埋点、结果归档。
-            一个业务决定只能有一个权威。
-          </p>
-        </div>
-        <div class="bd">
-          <h3>Python 是确定性工具箱</h3>
-          <p class="small secondary">
-            数据画像、沙箱执行、规则校验、缺陷注入。<strong>不做任何业务决策</strong> ——
-            不解释 scope、不决定该不该澄清、不判定校验结论。
-          </p>
-        </div>
-        <div class="bd">
-          <h3>知识库走 SQL，不走向量</h3>
-          <p class="small secondary">
-            判据只有命中条数：0 条短路返回无依据，1 条自动决定，多条触发澄清。
-            <strong>向量检索给不出「查不到」</strong>，它总会返回最相似的几条。
-          </p>
-        </div>
-        <div class="bd">
-          <h3>确定性归确定性</h3>
-          <p class="small secondary">
-            去重、阈值判断、格式转换、统计计算、结果校验一律走代码。
-            LLM 只负责意图理解、任务拆解、常识判断。<strong>阈值不进 Prompt</strong>。
-          </p>
-        </div>
-      </div>
     </div>
 
     <div class="two">
@@ -103,10 +81,7 @@ onMounted(async () => {
             跑 <code>sql/data/knowledge_rule_seed.sql</code>。
           </p>
           <p v-else class="small muted">
-            全部存储就是一张 MySQL 表 <code>data_agent_knowledge_rule</code>：
-            生理指标区间、四套预警评分分档、文本取值映射、缺失语义。
-            CEWS 与三列缺失语义<strong>刻意没录</strong> —— 手头没有可引用的权威分档表，
-            编一份看起来像样的数字，代价是整条链路的可信度。
+            覆盖生理指标区间、四套预警评分分档、文本取值映射、缺失语义四类规则。
           </p>
         </template>
       </div>
@@ -120,8 +95,7 @@ onMounted(async () => {
           </button>
         </div>
         <p class="small muted" style="margin-top: 0;">
-          ⚠ 这一项<strong>会真调一次大模型</strong>（约 1–2 秒），所以做成点击才跑。
-          挂在页面加载上等于每开一次首页烧一次 Token。
+          ⚠ 这一项<strong>会真调一次大模型</strong>（约 1–2 秒），所以点击才跑。
         </p>
         <div v-if="smoke.error" class="error">{{ smoke.error }}</div>
         <table v-else-if="smoke.data" class="data" style="margin-top: 8px;">
@@ -152,7 +126,9 @@ onMounted(async () => {
           <span class="small muted">{{ latest.startTime }}</span>
           <span class="small muted">模型 {{ latest.modelName }} · seed {{ latest.datasetSeed }}</span>
         </div>
-        <p class="small secondary change">{{ latest.changeNote }}</p>
+        <p v-if="latestChangeBrief" class="small secondary change" :title="latest.changeNote">
+          {{ latestChangeBrief }}
+        </p>
 
         <div class="metric-grid">
           <div class="metric">
@@ -193,37 +169,12 @@ onMounted(async () => {
       </template>
     </div>
 
-    <div class="card">
-      <h2>这个前端的边界</h2>
-      <ul class="secondary bounds">
-        <li><strong>后端一行不改</strong>：只消费已有的 10 个接口，不加 Java 代码、不加 CORS
-          （靠 vite dev proxy）、不改返回体、不进 Maven 构建。</li>
-        <li><strong>没有「发起评测」按钮</strong>：那是十几分钟、约 28 万 Token 的实验，
-          且 changeNote 必填。做成按钮等于把一次严肃实验降格成一次点击。</li>
-        <li><strong>没有文件上传</strong>：<code>datasetPath</code> 是服务端本地路径，上传排在 Phase 1。</li>
-        <li><strong>澄清答复不能回传</strong>：后端接口还没写，页面上如实标注，不做假输入框。</li>
-        <li><strong>不引 UI 组件库 / 图表库</strong>：null 必须与 0 长得不一样、状态色必须配图标与文字、
-          caveats 不可折叠 —— 每一条都要逆着库的默认值改，逆着改三处不如不引。</li>
-      </ul>
-    </div>
   </div>
 </template>
 
 <style scoped>
 .lede { max-width: 82ch; margin: 8px 0 18px; }
 
-.boundary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 12px;
-}
-.bd {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-}
-.bd h3 { margin-bottom: 4px; }
-.bd p { margin: 0; }
 
 .two {
   display: grid;
@@ -240,6 +191,7 @@ onMounted(async () => {
   background: var(--surface-2);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   max-width: 90ch;
+  line-height: 1.55;
 }
 
 .metric-grid {
@@ -256,8 +208,6 @@ onMounted(async () => {
 .metric-value { font-size: 20px; font-weight: 600; margin-top: 2px; }
 .metric-note { margin-top: 4px; line-height: 1.45; }
 
-.bounds { margin: 10px 0 0; padding-left: 22px; max-width: 88ch; }
-.bounds li { margin-bottom: 5px; }
 
 .clip { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .error { color: var(--status-critical); }
