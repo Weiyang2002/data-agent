@@ -82,18 +82,23 @@ public class ValidatorAgent implements DataAgent<ValidationInput, ValidationRepo
         }
 
         // 行级：阈值从知识库来，参数传给 Python
-        rowLevelValidator.validate(context.getTraceId(), input.outputPath(),
-            columnsToCheck(input), report);
+        guard(report, "行级校验", List.of(FindingLevel.ROW), () ->
+            rowLevelValidator.validate(context.getTraceId(), input.outputPath(),
+                columnsToCheck(input), report));
 
         // 分布级 + 结构级：Python 确定性检测器
-        distributionValidator.validate(context.getTraceId(), input.outputPath(), report);
+        guard(report, "分布级校验",
+            List.of(FindingLevel.DISTRIBUTION, FindingLevel.STRUCTURE, FindingLevel.CLARIFY), () ->
+            distributionValidator.validate(context.getTraceId(), input.outputPath(), report));
 
         // 常识级：输入是处理前后的画像 diff，没有原始数据
-        ProfileResponse afterProfile = dataToolsClient.profile(
-            context.getTraceId(),
-            ProfileRequest.of(input.outputPath(), properties.getTextValueTopN()));
-        ProfileDiff diff = profileDiffBuilder.build(input.beforeProfile(), afterProfile);
-        commonSenseValidator.validate(diff, report);
+        guard(report, "常识级校验", List.of(FindingLevel.COMMON_SENSE), () -> {
+            ProfileResponse afterProfile = dataToolsClient.profile(
+                context.getTraceId(),
+                ProfileRequest.of(input.outputPath(), properties.getTextValueTopN()));
+            ProfileDiff diff = profileDiffBuilder.build(input.beforeProfile(), afterProfile);
+            commonSenseValidator.validate(diff, report);
+        });
 
         log.info("三层校验完成 taskCode={} 共 {} 项发现（行级 {} / 分布级 {} / 结构级 {} / 常识级 {}）",
             context.getTaskCode(), report.getFindings().size(),
@@ -102,6 +107,24 @@ public class ValidatorAgent implements DataAgent<ValidationInput, ValidationRepo
             report.byLevel(FindingLevel.STRUCTURE).size(),
             report.byLevel(FindingLevel.COMMON_SENSE).size());
         return report;
+    }
+
+    /**
+     * 一层挂掉不牵连其余层：把该层标成未执行并写明原因，其余层照跑，处理产出照样
+     * 保留。校验是对处理结果的验收，验收工具坏了不等于处理结果作废。
+     */
+    private void guard(ValidationReport report, String name,
+                       List<FindingLevel> levels, Runnable body) {
+        try {
+            body.run();
+        }
+        catch (RuntimeException exception) {
+            log.error("{}失败，该层标记为未执行", name, exception);
+            String reason = name + "执行失败：" + exception.getMessage();
+            levels.stream()
+                .filter(level -> !Boolean.TRUE.equals(report.getLevelExecuted().get(level)))
+                .forEach(level -> report.markSkipped(level, reason));
+        }
     }
 
     /**

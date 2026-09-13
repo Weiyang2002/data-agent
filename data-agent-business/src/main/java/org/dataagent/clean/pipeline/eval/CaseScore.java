@@ -34,8 +34,8 @@ public class CaseScore {
 
     // ── 结果正确性 ──
     /**
-     * 本用例是否计入结果正确率。expectClarify=true 的用例不计（正确行为是停下
-     * 提问，而澄清答复回传接口尚未实现）。
+     * 本用例是否计入结果正确率。expectClarify=true 的用例不计：正确行为是停下提问，
+     * 而评测集没有 golden 答复，评测器不替医生作答。
      */
     private boolean resultScorable;
 

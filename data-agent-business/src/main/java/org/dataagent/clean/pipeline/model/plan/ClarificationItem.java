@@ -25,8 +25,14 @@ public class ClarificationItem {
     /** 给医生看的问题措辞，允许模型发挥（temperature 0.5） */
     private String question;
 
-    /** 候选答案，尽量让医生做选择题而不是问答题 */
+    /** 候选答案，尽量让医生做选择题而不是问答题。措辞环节可能改写 */
     private List<String> options = new ArrayList<>();
+
+    /**
+     * 候选答案的机器码，与 {@link #options} 逐位对应。措辞由模型改写，机器码由代码
+     * 决定，答复归一只认这一份。
+     */
+    private List<String> optionCodes = new ArrayList<>();
 
     private String columnName;
 
@@ -43,4 +49,7 @@ public class ClarificationItem {
     private List<String> conflictingSources = new ArrayList<>();
 
     private String answer;
+
+    /** 答复归一后的机器码，取自 {@link #optionCodes}；空表示答复无法映射为确定性动作 */
+    private String answerAction;
 }

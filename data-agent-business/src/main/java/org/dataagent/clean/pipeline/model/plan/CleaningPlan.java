@@ -28,10 +28,14 @@ public class CleaningPlan {
             .thenComparing(ClarificationItem::getTopic));
     }
 
-    /** 真正要问医生的项。HIGH 级已经自动决定了，不打扰医生 */
+    /**
+     * 还要问医生的项。HIGH 级已经自动决定了不打扰医生；已经归一成功的答复也不再算
+     * 待答。答了但没能归一的仍然算待答——那条答复系统用不上，等于没答。
+     */
     public List<ClarificationItem> pendingQuestions() {
         return clarifications.stream()
             .filter(item -> item.getLevel().needsAsking())
+            .filter(item -> item.getAnswerAction() == null || item.getAnswerAction().isBlank())
             .toList();
     }
 

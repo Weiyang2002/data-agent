@@ -1,6 +1,8 @@
 package org.dataagent.clean.pipeline.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.dataagent.clean.pipeline.clarify.ClarifyAction;
+import org.dataagent.clean.pipeline.clarify.ClarificationResolver;
 import org.dataagent.clean.pipeline.knowledge.KnowledgeLookup;
 import org.dataagent.clean.pipeline.knowledge.KnowledgeRuleService;
 import org.dataagent.clean.pipeline.knowledge.RuleType;
@@ -225,9 +227,12 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
      *   命中 &gt;1 条                   → LOW    语义歧义，澄清
      *   命中 0 条                    → LOW    无依据，澄清
      *   命中 1 条但规则内部未决      → LOW    决策点澄清（见 UndecidedRule）
-     *   confirmedAnswers 里已答过    → 复用答案，不重复提问
      *   可归并到已有澄清项           → MEDIUM 合并
      * </pre>
+     *
+     * <p>转成澄清项的列同时记进 {@code step.unresolvedColumns}：一步涉及多列时，
+     * 一列查到依据不能让整步「看起来有依据」。答复归一由
+     * {@code ClarificationResolver} 独占，本方法不读既往答复。
      *
      * <p>{@code scoringSystem} 限定词只对 SEVERITY_SCORING 生效：非评分规则的
      * {@code scoring_system} 为空串，带限定词检索必然 0 命中。
@@ -264,11 +269,8 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
             }
 
             String topic = topicOf(column, required);
-            if (context.getConfirmedAnswers().containsKey(topic)) {
-                // 中断恢复：医生已答过，不重复提问
-                log.info("澄清点 {} 已有既往答复，跳过提问", topic);
-                continue;
-            }
+            step.getUnresolvedColumns().add(column);
+
             Optional<ClarificationItem> mergeable = findMergeable(plan, topic);
             if (mergeable.isPresent()) {
                 mergeable.get().setLevel(ClarificationLevel.MEDIUM);
@@ -348,7 +350,10 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
         if (undecided != null) {
             // 规则内部未决：有依据，且依据本身写着需要用户选择，措辞需与 NO_EVIDENCE 区分
             item.setSourceRuleIds(List.of(undecided.ruleId()));
-            item.setOptions(new ArrayList<>(undecided.options()));
+            fillActionOptions(item, undecided.options().stream()
+                .map(ClarifyAction::fromRuleWord)
+                .flatMap(Optional::stream)
+                .toList());
             item.setEvidence("院内规范对「%s」的%s给出的是一个决策点而非结论：%s。%s"
                 .formatted(column, required.getLabel(),
                     String.join(" / ", undecided.options()),
@@ -365,6 +370,9 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
                 .formatted(column, required.getLabel(), lookup.getRules().size(),
                     String.join("、", lookup.conflictingSources())));
             item.setOptions(new ArrayList<>(lookup.conflictingSources()));
+            // 医生选的是「哪一条规则」，不是「哪个名字」，机器码直接落规则主键
+            item.setOptionCodes(lookup.ruleIds().stream()
+                .map(ruleId -> ClarificationResolver.ruleOptionCode(ruleId)).toList());
             // 占位措辞，措辞环节失败时兜底
             item.setQuestion("「%s」有多套%s标准，本次分析用哪一套？"
                 .formatted(column, required.getLabel()));
@@ -372,8 +380,19 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
         else {
             item.setEvidence(noEvidenceText(column, required, profile));
             item.setQuestion("知识库里查不到「%s」的%s，需要你来定。".formatted(column, required.getLabel()));
+            if (required == RuleType.MISSING_SEMANTICS) {
+                // 无依据不等于无从下手：缺失语义的处理方式是可枚举的，给选择题
+                fillActionOptions(item, ClarificationResolver.missingSemanticsMenu());
+            }
         }
         return item;
+    }
+
+    /** 候选动作同时写措辞和机器码，两份逐位对应。 */
+    private void fillActionOptions(ClarificationItem item, List<ClarifyAction> actions) {
+        item.setOptions(actions.stream().map(ClarifyAction::getLabel).collect(
+            java.util.stream.Collectors.toCollection(ArrayList::new)));
+        item.setOptionCodes(actions.stream().map(Enum::name).toList());
     }
 
     /**
@@ -435,8 +454,16 @@ public class PlannerAgent implements DataAgent<ProfileResponse, CleaningPlan> {
                 if (replacement != null && replacement.getQuestion() != null
                     && !replacement.getQuestion().isBlank()) {
                     item.setQuestion(replacement.getQuestion());
-                    if (replacement.getOptions() != null && !replacement.getOptions().isEmpty()) {
+                    // 选项措辞可以改写，条数不能变：机器码按下标对应，错位即答非所问
+                    if (replacement.getOptions() != null
+                        && replacement.getOptions().size() == item.getOptionCodes().size()) {
                         item.setOptions(replacement.getOptions());
+                    }
+                    else if (replacement.getOptions() != null
+                        && !replacement.getOptions().isEmpty()) {
+                        log.warn("澄清项 {} 的措辞返回了 {} 个选项，与机器码 {} 条对不上，沿用原选项",
+                            item.getClarifyCode(), replacement.getOptions().size(),
+                            item.getOptionCodes().size());
                     }
                 }
             }

@@ -44,6 +44,13 @@ public interface KnowledgeRuleMapper extends BaseMapper<KnowledgeRuleEntity> {
                                                         @Param("ruleType") String ruleType,
                                                         @Param("scoringSystem") String scoringSystem);
 
+    /** 按主键取一条生效规则。医生在多套并存的标准里选定了一条时走这里。 */
+    @Select("""
+        SELECT * FROM data_agent_knowledge_rule
+        WHERE id = #{id} AND effective_flag = 1
+        """)
+    KnowledgeRuleEntity findEffectiveById(@Param("id") Long id);
+
     /** 全量取生效规则，供 {@code ColumnResolver} 构建别名索引（一次性载入内存）。 */
     @Select("SELECT * FROM data_agent_knowledge_rule WHERE effective_flag = 1")
     List<KnowledgeRuleEntity> findAllEffective();

@@ -260,3 +260,27 @@ def test_profile_survives_full_defect_dataset():
         "WINDOW_ALL_NULL", "HIGH_MISSING_RATE",
     }
     assert expected <= detected, f"漏检 {expected - detected}"
+
+
+def test_bool_column_profiles_as_categorical(tmp_path):
+    """澄清答复选「保留缺失并加标记列」后，处理产出会多一个布尔标记列。
+
+    ``is_numeric_dtype(bool)`` 为 True，若按数值列走统计，``quantile()`` 会抛
+    ``numpy boolean subtract``——处理本身成功了，却在校验环节把整条链路带崩。
+    """
+    frame = pd.DataFrame({
+        C.COL_ADMISSION: ["A1", "A1", "A2", "A2"],
+        C.COL_TEMP: [36.5, None, 37.2, None],
+        "体温_is_missing": [False, True, False, True],
+    })
+    path = tmp_path / "bool_flag.parquet"
+    frame.to_parquet(path, index=False)
+
+    response = profile_dataset(ProfileRequest(datasetPath=str(path)))
+    flag = next(item for item in response.columns if item.name == "体温_is_missing")
+
+    assert flag.numeric is None, "布尔标记列不该按数值指标统计"
+    assert {value.value for value in flag.textValues} == {"True", "False"}
+
+    temperature = next(item for item in response.columns if item.name == C.COL_TEMP)
+    assert temperature.numeric is not None, "真数值列不受影响"

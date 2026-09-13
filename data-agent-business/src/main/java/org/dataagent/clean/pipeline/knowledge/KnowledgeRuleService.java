@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -233,6 +234,82 @@ public class KnowledgeRuleService {
             .map(KnowledgeRuleEntity::getColumnName)
             .distinct()
             .toList();
+    }
+
+    /**
+     * 按主键取一条生效规则。医生在多套并存的标准里选定了一条之后走这里，选中的是
+     * 规则本身而不是「哪一套标准」这个名字。
+     */
+    public Optional<KnowledgeRuleEntity> findById(Long ruleId) {
+        if (ruleId == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(knowledgeRuleMapper.findEffectiveById(ruleId));
+    }
+
+    /**
+     * 把一条规则装配成执行参数。键名带列名前缀，值原样进 {@code /execute} 的
+     * params，全程不经过 Prompt。装配不出来返回空 Map，调用方据此判定该步骤仍不可
+     * 执行，不得退回硬编码。
+     */
+    public Map<String, Object> paramsForRule(KnowledgeRuleEntity rule) {
+        if (rule == null) {
+            return Map.of();
+        }
+        RuleType type = RuleType.parse(rule.getRuleType());
+        if (type == null) {
+            return Map.of();
+        }
+        return switch (type) {
+            case VALIDITY -> validityParams(rule);
+            case SEVERITY_SCORING -> parseScoring(rule, rule.getScoringSystem())
+                .map(parsed -> Map.<String, Object>of(parsed.paramKey(), parsed.paramValue()))
+                .orElseGet(Map::of);
+            case TEXT_MAPPING -> textMappingParams(rule);
+            case MISSING_SEMANTICS -> Map.of();
+        };
+    }
+
+    private Map<String, Object> validityParams(KnowledgeRuleEntity rule) {
+        Optional<ValidityRange> parsed = parseValidity(rule);
+        if (parsed.isEmpty()) {
+            return Map.of();
+        }
+        ValidityRange range = parsed.get();
+        Map<String, Object> params = new LinkedHashMap<>();
+        if (range.isNumeric()) {
+            params.put(range.minParamKey(), range.min());
+            params.put(range.maxParamKey(), range.max());
+        }
+        if (range.allowedValues() != null) {
+            params.put(range.allowedValuesParamKey(), range.allowedValues());
+        }
+        return params;
+    }
+
+    /**
+     * TEXT_MAPPING 的两种 payload 形状分别给不同的键：编码表是
+     * {@code {value, code}}，评分表是 {@code {value, category, score}}。合成一个键会
+     * 让代码生成侧无从知道该写哪一种，形状差异要在键名上显式化。
+     */
+    private Map<String, Object> textMappingParams(KnowledgeRuleEntity rule) {
+        try {
+            JsonNode payload = objectMapper.readTree(rule.getPayload());
+            List<Map<String, Object>> mappings = readList(payload.get("mappings"));
+            if (mappings == null) {
+                log.warn("知识库规则 {} 的 TEXT_MAPPING payload 没有 mappings，按无依据处理",
+                    rule.getId());
+                return Map.of();
+            }
+            boolean scored = mappings.get(0).containsKey("score");
+            String key = rule.getColumnName() + (scored ? "_score_map" : "_code_map");
+            return Map.of(key, mappings);
+        }
+        catch (Exception exception) {
+            log.warn("知识库规则 {} 的 TEXT_MAPPING payload 解析失败，按无依据处理: {}",
+                rule.getId(), exception.getMessage());
+            return Map.of();
+        }
     }
 
     /** 生效规则总数，启动自检用，0 条说明种子数据没导入。 */

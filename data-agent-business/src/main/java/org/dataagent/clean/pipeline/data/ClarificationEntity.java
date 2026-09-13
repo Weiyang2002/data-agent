@@ -31,6 +31,9 @@ public class ClarificationEntity {
 
     private String optionsJson;
 
+    /** 候选答案的机器码，与 optionsJson 逐位对应；措辞可被模型改写，机器码不可 */
+    private String optionCodesJson;
+
     private String columnName;
 
     private Double coverageRatio;
@@ -41,6 +44,9 @@ public class ClarificationEntity {
     private String sourceRuleIds;
 
     private String answer;
+
+    /** 答复归一后的机器码；为空表示答复无法映射为确定性动作 */
+    private String answerAction;
 
     private LocalDateTime answeredAt;
 

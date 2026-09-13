@@ -85,11 +85,14 @@ public class TaskPersistence {
         });
     }
 
+    /** 按任务号取任务，恢复接口的前置校验用；不存在返回 empty。 */
+    public java.util.Optional<TaskEntity> findTask(String taskCode) {
+        return java.util.Optional.ofNullable(taskMapper.findByTaskCode(taskCode));
+    }
+
     public void updateStatus(TaskInfo taskInfo, String status, String failReason) {
         guard("任务状态更新", () -> {
-            TaskEntity entity = taskMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<TaskEntity>()
-                    .eq("task_code", taskInfo.getTaskCode()));
+            TaskEntity entity = taskMapper.findByTaskCode(taskInfo.getTaskCode());
             if (entity == null) {
                 return;
             }
@@ -163,6 +166,7 @@ public class TaskPersistence {
                 clarifyEntity.setTopic(item.getTopic());
                 clarifyEntity.setQuestion(truncate(item.getQuestion(), 1000));
                 clarifyEntity.setOptionsJson(toJson(item.getOptions()));
+                clarifyEntity.setOptionCodesJson(toJson(item.getOptionCodes()));
                 clarifyEntity.setColumnName(item.getColumnName());
                 clarifyEntity.setCoverageRatio(item.getCoverageRatio());
                 clarifyEntity.setEvidence(truncate(item.getEvidence(), 1000));

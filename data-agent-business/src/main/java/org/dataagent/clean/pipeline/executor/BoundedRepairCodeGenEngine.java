@@ -156,6 +156,23 @@ public class BoundedRepairCodeGenEngine implements CodeGenPort {
         if (key.endsWith("_allowed")) {
             return "该列的允许取值列表（字符串）";
         }
+        if (key.endsWith("_code_map")) {
+            return "取值到编码的映射列表，元素形如 {\"value\": 原始取值, \"code\": 编码}；"
+                + "按该列取值查表写入新列，查不到的取值写空值，不要猜";
+        }
+        if (key.endsWith("_score_map")) {
+            return "取值到分数的映射列表，元素形如 {\"value\": 原始取值, \"score\": 整数}；"
+                + "按该列取值查表，查不到的取值写空值";
+        }
+        if (key.endsWith("_fill_value")) {
+            return "该列缺失值要填的常量，直接用这个值填充，不要另取默认值";
+        }
+        if (key.endsWith("_interpolate_group")) {
+            return "插值的分组列名列表（字符串），按这些列分组后组内插值，不跨组";
+        }
+        if (key.endsWith("_interpolate_order")) {
+            return "插值的排序列名（字符串），组内先按它升序排再线性插值，两端不外推";
+        }
         return value instanceof List<?> ? "列表" : "数值";
     }
 

@@ -63,7 +63,8 @@ public class MetricsAggregator {
             "resultCorrectRate", "结果正确率", ratio(correct, scorable), correct, scorable,
             "判据 = 有输出 且 已执行步骤全成功 且 需求指向的缺陷在处理后不再被检出；"
                 + "expectClarify=true 的 " + (scores.size() - scorable)
-                + " 个用例不计入（澄清答复回传接口未实现）"));
+                + " 个用例不计入（正确行为是停下提问；评测集没有 golden 答复，"
+                + "评测器不替医生作答）"));
 
         // ── 分层检出率 ──
         Map<String, long[]> byLevel = new LinkedHashMap<>();

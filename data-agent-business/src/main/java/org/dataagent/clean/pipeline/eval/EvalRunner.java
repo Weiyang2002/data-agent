@@ -422,16 +422,16 @@ public class EvalRunner {
         // （没采到 / 模型没回 usage / 有未归属阶段），不在这里写死。
         report.getCaveats().add(
             "澄清类用例只测到「问没问对」，测不到「答完之后做没做对」——"
-                + "澄清答复回传接口（PipelineMode.CLARIFY_RESUME）尚未实现，"
-                + "这些用例不计入结果正确率");
+                + "答复接口与 CLARIFY_RESUME 已实现，但评测集没有 golden 答复，"
+                + "评测器不替医生作答，这些用例仍不计入结果正确率");
         report.getCaveats().add(
             "常识级检出经关键词归一，测出来的是下界：模型用词表之外的说法描述同一个问题时会被记成漏检。"
                 + "每个用例的 unmatchedSuspicions 给出未能归一的疑点条数，"
                 + "它同时是口径损失和对冲式误报的量度");
         report.getCaveats().add(
-            "COMPUTE_SCORE 的 payload 装配已在 M4 第 2 轮实现，但只覆盖 SEVERITY_SCORING；"
-                + "TEXT_MAPPING / MISSING_SEMANTICS 的 params 装配仍未做，"
-                + "这两类动作查到规则也只记 ruleId、不注参数");
+            "TEXT_MAPPING / MISSING_SEMANTICS 的 params 装配只在澄清答复路径上实现"
+                + "（医生选中某条规则或某个缺失处理动作后装配）；首轮直接命中唯一规则时"
+                + "这两类动作仍只记 ruleId、不注参数");
         report.getCaveats().add(
             "行级越界的检出依赖评测层的「处理前探针」——链路本身在画像阶段不做越界判定。"
                 + "这是链路的缺口，M4 未处置（预算给了更大的失败簇），仍然成立："

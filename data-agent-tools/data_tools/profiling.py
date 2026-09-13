@@ -104,7 +104,7 @@ def _profile_column(frame: pd.DataFrame, name: str, top_n: int) -> ColumnProfile
     distinct = int(non_null.nunique())
 
     numeric: NumericProfile | None = None
-    if pd.api.types.is_numeric_dtype(series) and len(non_null) > 0:
+    if _is_measure(series) and len(non_null) > 0:
         numeric = NumericProfile(
             min=_num(non_null.min()),
             max=_num(non_null.max()),
@@ -116,7 +116,7 @@ def _profile_column(frame: pd.DataFrame, name: str, top_n: int) -> ColumnProfile
 
     text_values: list[TextValue] | None = None
     truncated = False
-    if not pd.api.types.is_numeric_dtype(series) and len(non_null) > 0:
+    if not _is_measure(series) and len(non_null) > 0:
         if distinct <= top_n:
             counts = non_null.astype(str).value_counts()
             text_values = [
@@ -208,6 +208,17 @@ def detect_column_anomalies(series: pd.Series, column: ColumnProfile,
     found.extend(_detect_window_all_null(series, name, thresholds.null_run_factor))
     found.extend(_detect_high_missing(column, thresholds.high_missing))
     return found
+
+
+def _is_measure(series: pd.Series) -> bool:
+    """该列是否按数值指标做统计。布尔列排除在外。
+
+    ``is_numeric_dtype(bool)`` 为 True，但 ``Series.quantile()`` 在布尔列上直接抛
+    ``numpy boolean subtract``；而且布尔标记列的分位数本来也没有临床含义。
+    排除后布尔列走取值枚举分支，True/False 各占多少反而是有用信息。
+    """
+    return (pd.api.types.is_numeric_dtype(series)
+            and not pd.api.types.is_bool_dtype(series))
 
 
 def profile_column(frame: pd.DataFrame, name: str, top_n: int) -> ColumnProfile:
