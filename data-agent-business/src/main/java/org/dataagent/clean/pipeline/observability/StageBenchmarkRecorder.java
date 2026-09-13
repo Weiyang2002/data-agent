@@ -11,7 +11,8 @@ import java.util.List;
 
 /**
  * 任务结束时把 {@link TraceContext.TaskScope} 里的账一次性落到
- * {@code data_agent_stage_benchmark}（一个任务一个阶段一行，内存累加后批量插入）。
+ * {@code data_agent_stage_benchmark}（一个任务一个阶段一行，内存累加后批量落库；
+ * 同一任务跑第二轮时在原行上累加，见 {@code StageBenchmarkMapper.accumulate}）。
  * 中途崩溃会丢这份账，故障恢复所需信息在逐阶段实时写的 {@code task_stage} 流水里。
  */
 @Component
@@ -36,7 +37,7 @@ public class StageBenchmarkRecorder {
             int totalCalls = 0;
             int missing = 0;
             for (TraceContext.StageTally tally : tallies) {
-                stageBenchmarkMapper.insert(toEntity(scope, tally));
+                stageBenchmarkMapper.accumulate(toEntity(scope, tally));
                 totalTokens += tally.totalTokens();
                 totalCalls += tally.modelCalls();
                 missing += tally.usageMissingCalls();

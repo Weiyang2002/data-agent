@@ -64,6 +64,12 @@ export const api = {
   runTask: (requirement, datasetPath, signal) =>
     request('/api/task/run', { method: 'POST', body: { requirement, datasetPath }, signal }),
   taskTrace: (taskCode) => request(`/api/task/${encodeURIComponent(taskCode)}/trace`),
+  taskClarifications: (taskCode) =>
+    request(`/api/task/${encodeURIComponent(taskCode)}/clarifications`),
+  /** 答复回传。resume=true 时后端从 checkpoint 接着跑，耗时与一次链路相当 */
+  clarifyTask: (taskCode, answers, resume, signal) =>
+    request(`/api/task/${encodeURIComponent(taskCode)}/clarify`,
+      { method: 'POST', body: { answers, resume }, signal }),
 
   // ── 数据集 / 用例 ──
   evalCases: () => request('/api/eval/cases'),

@@ -1,7 +1,10 @@
 package org.dataagent.clean.pipeline.controller;
 
 import jakarta.validation.Valid;
+import org.dataagent.clean.pipeline.clarify.ClarificationStore;
+import org.dataagent.clean.pipeline.dto.ClarifyAnswerRequest;
 import org.dataagent.clean.pipeline.dto.CleanTaskRequest;
+import org.dataagent.clean.pipeline.executor.CleanTaskResultAssembler;
 import org.dataagent.clean.pipeline.knowledge.KnowledgeLookup;
 import org.dataagent.clean.pipeline.knowledge.KnowledgeRuleService;
 import org.dataagent.clean.pipeline.knowledge.RuleType;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /** 任务处理主接口。 */
@@ -29,19 +33,46 @@ public class CleanTaskController {
     private final CleanTaskService cleanTaskService;
     private final KnowledgeRuleService knowledgeRuleService;
     private final TaskTraceService taskTraceService;
+    private final ClarificationStore clarificationStore;
+    private final CleanTaskResultAssembler assembler;
 
     public CleanTaskController(CleanTaskService cleanTaskService,
                                KnowledgeRuleService knowledgeRuleService,
-                               TaskTraceService taskTraceService) {
+                               TaskTraceService taskTraceService,
+                               ClarificationStore clarificationStore,
+                               CleanTaskResultAssembler assembler) {
         this.cleanTaskService = cleanTaskService;
         this.knowledgeRuleService = knowledgeRuleService;
         this.taskTraceService = taskTraceService;
+        this.clarificationStore = clarificationStore;
+        this.assembler = assembler;
     }
 
     /** 发起一次完整处理：画像 → 规划 → 执行 → 校验 */
     @PostMapping("/run")
     public ApiResponse<CleanTaskResultVO> run(@Valid @RequestBody CleanTaskRequest request) {
         return ApiResponse.success(cleanTaskService.run(request));
+    }
+
+    /**
+     * 读回一个任务的澄清项，按覆盖率降序。医生刷新页面、换设备接着答都走这里，
+     * 不必留着上一次的响应体。
+     */
+    @GetMapping("/{taskCode}/clarifications")
+    public ApiResponse<List<CleanTaskResultVO.ClarificationView>> clarifications(
+            @PathVariable String taskCode) {
+        return ApiResponse.success(clarificationStore.loadByTask(taskCode).stream()
+            .map(assembler::toView).toList());
+    }
+
+    /**
+     * 回传澄清答复。默认答完立刻从 checkpoint 接着跑（不重跑画像与规划），
+     * {@code resume=false} 则只落答复。
+     */
+    @PostMapping("/{taskCode}/clarify")
+    public ApiResponse<CleanTaskResultVO> clarify(@PathVariable String taskCode,
+                                                  @Valid @RequestBody ClarifyAnswerRequest request) {
+        return ApiResponse.success(cleanTaskService.resume(taskCode, request));
     }
 
     /**

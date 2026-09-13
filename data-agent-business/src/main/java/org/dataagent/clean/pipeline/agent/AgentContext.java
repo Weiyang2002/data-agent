@@ -2,9 +2,6 @@ package org.dataagent.clean.pipeline.agent;
 
 import lombok.Data;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 /**
  * 单次任务在四个 Agent 之间传递的上下文。
  *
@@ -28,12 +25,6 @@ public class AgentContext {
 
     /** 医生的原始需求 */
     private String requirement;
-
-    /**
-     * 已确认的澄清结论：topic → answer。中断恢复后 PlannerAgent 先查这里，
-     * 已答过的决策点不再重复提问。
-     */
-    private Map<String, String> confirmedAnswers = new LinkedHashMap<>();
 
     public static AgentContext of(String taskCode, String traceId, String requirement) {
         AgentContext context = new AgentContext();

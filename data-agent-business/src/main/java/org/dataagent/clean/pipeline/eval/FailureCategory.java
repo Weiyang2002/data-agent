@@ -31,7 +31,7 @@ public enum FailureCategory {
     DISCOVERY_MISS("主动发现缺失", "golden 中 userAsked=false 的缺陷未被报告"),
 
     /** 澄清类用例：问对了，但「答完之后做没做对」暂时测不了 */
-    CLARIFY_ONLY("仅计澄清", "该用例应触发澄清且已正确触发；澄清答复回传接口未实现，结果正确率不计入"),
+    CLARIFY_ONLY("仅计澄清", "该用例应触发澄清且已正确触发；评测集没有 golden 答复，结果正确率不计入"),
 
     OK("通过", "全部判据通过"),
     ;

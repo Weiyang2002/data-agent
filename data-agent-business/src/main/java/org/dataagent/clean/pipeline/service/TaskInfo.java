@@ -26,8 +26,8 @@ public class TaskInfo {
 
     private String datasetPath;
 
-    /** 中断恢复时带进来的既有澄清答复：topic → answer */
-    private Map<String, String> confirmedAnswers = new LinkedHashMap<>();
+    /** 澄清恢复轮带进来的答复：clarifyCode → answer。首轮为空 */
+    private Map<String, String> answers = new LinkedHashMap<>();
 
     public AgentContext toAgentContext() {
         AgentContext context = new AgentContext();
@@ -37,7 +37,6 @@ public class TaskInfo {
         context.setRequirement(requirement);
         context.setDatasetCode(datasetCode);
         context.setDatasetPath(datasetPath);
-        context.setConfirmedAnswers(confirmedAnswers);
         return context;
     }
 }

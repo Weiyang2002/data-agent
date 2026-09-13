@@ -342,11 +342,13 @@ CREATE TABLE IF NOT EXISTS `data_agent_clarification`
     `topic`           VARCHAR(128)  NOT NULL COMMENT '澄清主题，用于与 golden 的 expectClarifications 比对',
     `question`        VARCHAR(1024) NOT NULL COMMENT '给医生看的问题措辞',
     `options_json`    JSON                   DEFAULT NULL COMMENT '候选答案，尽量让医生做选择题而不是问答题',
+    `option_codes_json` JSON                 DEFAULT NULL COMMENT '候选答案的机器码，与 options_json 逐位对应；措辞可被模型改写，机器码不可',
     `column_name`     VARCHAR(128)           DEFAULT NULL,
     `coverage_ratio`  DECIMAL(9, 6) NOT NULL DEFAULT 0 COMMENT '该决策点覆盖的数据占比，提问排序依据',
     `evidence`        VARCHAR(1024)          DEFAULT NULL COMMENT '为什么要问，来自画像的确定性证据',
     `source_rule_ids` JSON                   DEFAULT NULL COMMENT '命中多条规则触发的歧义澄清，记录冲突规则',
     `answer`          VARCHAR(1024)          DEFAULT NULL,
+    `answer_action`   VARCHAR(64)            DEFAULT NULL COMMENT '答复归一后的机器码；为空表示答复无法映射为确定性动作',
     `answered_at`     DATETIME               DEFAULT NULL,
     `create_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -413,3 +415,23 @@ CREATE TABLE IF NOT EXISTS `data_agent_validation_finding`
     KEY `idx_code` (`code`)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='三层校验发现';
+
+
+-- 澄清中断时的业务 checkpoint。
+--
+-- 不用 SAA Graph 的 GRAPH_CHECKPOINT：主链路是顺序 Java 调用不是图，
+-- 把 CleaningPlan 塞进图状态再读回来，等于让业务恢复依赖框架的检查点格式，
+-- 与「框架隔离」这条不变量相反。理由见 doc/设计决策记录.md。
+CREATE TABLE IF NOT EXISTS `data_agent_task_checkpoint`
+(
+    `id`           BIGINT      NOT NULL AUTO_INCREMENT,
+    `task_code`    VARCHAR(64) NOT NULL,
+    `trace_id`     VARCHAR(64) NOT NULL,
+    `stage`        VARCHAR(32) NOT NULL COMMENT '在哪个阶段中断，当前只有 CLARIFYING',
+    `payload_json` LONGTEXT    NOT NULL COMMENT '恢复所需的全部状态：画像 + 方案 + 已执行到哪一步',
+    `create_time`  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_task_code` (`task_code`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4 COMMENT ='澄清中断的业务检查点';

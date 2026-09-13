@@ -1,5 +1,6 @@
 package org.dataagent.clean.pipeline.vo;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -47,6 +48,9 @@ public class CleanTaskResultVO {
     /** 因「修复版与已跑过的版本相同」而提前终止的步骤数。 */
     private Integer repairShortCircuitCount;
 
+    /** 本轮澄清答复的归一结果，含被驳回的答复及原因 */
+    private List<ClarifyOutcomeView> clarifyOutcomes = new ArrayList<>();
+
     // ── 校验 ──
     private List<FindingView> findings = new ArrayList<>();
     /**
@@ -73,6 +77,8 @@ public class CleanTaskResultVO {
         private List<String> targetColumns = new ArrayList<>();
         /** 该步骤的临床依据，空表示无依据（对纯工程动作正常） */
         private List<Long> ruleIds = new ArrayList<>();
+        /** 依据来自医生答复而非院内规范。两者不能混为一谈 */
+        private Boolean userDecided;
         private Boolean executed;
         private Boolean success;
         private Integer repairCount;
@@ -81,16 +87,41 @@ public class CleanTaskResultVO {
     }
 
     @Data
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     public static class ClarificationView {
         private String clarifyCode;
         private String level;
         private String topic;
         private String question;
         private List<String> options = new ArrayList<>();
+        /** 与 options 逐位对应的机器码，答复回传时带这个最稳 */
+        private List<String> optionCodes = new ArrayList<>();
         private String columnName;
         private Double coverageRatio;
         private String evidence;
         private List<String> conflictingSources = new ArrayList<>();
+        private String answer;
+        /** 答复归一后的机器码；有答复但为空表示这条答复系统用不上 */
+        private String answerAction;
+    }
+
+    /**
+     * 全局 default-property-inclusion 是 non_null，而这里的 null 本身是结论
+     * （answerAction 为空 = 这条答复系统用不上），不显式声明会在响应体里凭空消失。
+     */
+    @Data
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public static class ClarifyOutcomeView {
+        private String clarifyCode;
+        private String topic;
+        private String answer;
+        /** 归一后的机器码；为空说明这条答复没能变成执行动作 */
+        private String answerAction;
+        private Boolean accepted;
+        /** 未被采纳的原因，如「答复对不上任何候选项」 */
+        private String rejectReason;
+        /** 依据来自知识库还是医生自决 */
+        private Boolean knowledgeBacked;
     }
 
     @Data

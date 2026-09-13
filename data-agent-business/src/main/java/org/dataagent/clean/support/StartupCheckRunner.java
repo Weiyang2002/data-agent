@@ -52,11 +52,13 @@ public class StartupCheckRunner implements ApplicationRunner {
         }
 
         if (!checkpointEnabled) {
-            log.warn("checkpoint 已关闭，澄清中断后无法恢复，仅适用于本地调试");
+            log.warn("SAA Graph 的 MysqlSaver 已关闭，仅适用于本地调试");
         }
         else {
-            log.info("checkpoint 已启用，澄清中断可恢复");
+            log.info("SAA Graph 的 MysqlSaver 已启用（图编排预留，业务恢复不走它）");
         }
+        log.info("澄清中断恢复：业务 checkpoint 走 data_agent_task_checkpoint，"
+            + "答复接口 POST /api/task/{taskCode}/clarify");
 
         log.info("Python 工具服务地址: {}", toolsBaseUrl);
         log.info("  验证链路: curl http://localhost:9090/api/smoke/all");

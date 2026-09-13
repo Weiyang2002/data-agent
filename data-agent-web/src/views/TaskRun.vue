@@ -82,6 +82,45 @@ async function runTask() {
 
 function cancelTask() { controller?.abort() }
 
+// ── [4] 澄清答复回传 ──
+// 医生选的是 optionCodes 里的机器码，不是选项措辞：措辞由模型改写，机器码由后端定，
+// 归一只认机器码。没有候选项的决策点前端不给输入框——自由文本后端一律驳回。
+const answers = ref({})
+const clarify = ref({ error: null, loading: false })
+
+const pendingClarifications = computed(() =>
+  (task.value.data?.clarifications ?? []).filter(item => (item.optionCodes ?? []).length > 0))
+
+const answeredCount = computed(() =>
+  pendingClarifications.value.filter(item => answers.value[item.clarifyCode]).length)
+
+async function submitAnswers(resume) {
+  const payload = Object.entries(answers.value)
+    .filter(([, value]) => value)
+    .map(([clarifyCode, answer]) => ({ clarifyCode, answer }))
+  if (payload.length === 0) return
+
+  controller = new AbortController()
+  clarify.value = { error: null, loading: true }
+  elapsed.value = 0
+  timer = setInterval(() => { elapsed.value += 1 }, 1000)
+  try {
+    const data = await api.clarifyTask(
+      task.value.data.taskCode, payload, resume, controller.signal)
+    task.value.data = data
+    answers.value = {}
+    rememberTask(data)
+  }
+  catch (error) {
+    clarify.value.error = error.name === 'AbortError' ? '已取消' : error.message
+  }
+  finally {
+    clarify.value.loading = false
+    clearInterval(timer)
+    controller = null
+  }
+}
+
 // ── 最近跑过的任务 ──
 // 后端没有「任务列表」接口，localStorage 存最近 8 个 taskCode，可顺着
 // /trace/:taskCode 找回刚跑完的任务。全量任务走评测报告页钻取。
@@ -109,11 +148,14 @@ function rememberTask(data) {
 // ── 结果的几处口径 ──
 
 /**
- * 需要临床依据的动作却拿不出 ruleIds 是异常，要标出来。纯工程动作空 ruleIds 正常。
+ * 需要临床依据的动作却拿不出 ruleIds 是异常，要标出来。两个例外：纯工程动作本来
+ * 就没有依据；医生在澄清里当场定下的决策也是依据，只是来源不是院内规范——这两者
+ * 要分开显示，不能都算「有依据」。
  */
 function evidenceState(step) {
   const spec = PLAN_ACTIONS[step.action]
   if ((step.ruleIds ?? []).length > 0) return { kind: 'ok', text: step.ruleIds.join(', ') }
+  if (step.userDecided) return { kind: 'user', text: '医生自决（无规范可引）' }
   if (spec?.needsEvidence && step.executed) {
     return { kind: 'bad', text: '缺依据（本动作需要 ' + spec.ruleType + '）' }
   }
@@ -415,17 +457,79 @@ onMounted(async () => {
           <div v-if="item.coverageRatio !== null && item.coverageRatio !== undefined" class="cover-bar">
             <div class="cover-fill" :style="{ width: (item.coverageRatio * 100) + '%' }"></div>
           </div>
-          <ul v-if="item.options?.length" class="options small">
+          <div v-if="item.optionCodes?.length" class="answer-options">
+            <label v-for="(option, index) in item.options" :key="index" class="answer-option">
+              <input
+                type="radio"
+                :name="item.clarifyCode"
+                :value="item.optionCodes[index]"
+                v-model="answers[item.clarifyCode]"
+                :disabled="clarify.loading">
+              <span>{{ option }}</span>
+              <code class="small muted">{{ item.optionCodes[index] }}</code>
+            </label>
+          </div>
+          <ul v-else-if="item.options?.length" class="options small">
             <li v-for="(option, index) in item.options" :key="index">{{ option }}</li>
           </ul>
           <div v-if="item.evidence" class="small muted">{{ item.evidence }}</div>
         </div>
-        <p class="small muted resume-note">
-          ⚠ 这里没有「回答并继续」的输入框，因为<strong>后端的澄清答复回传接口还没写</strong>
-          （<code>PipelineMode.CLARIFY_RESUME</code> 枚举值已留好，实现未做）。
-        </p>
+
+        <div v-if="pendingClarifications.length" class="resume-box">
+          <div class="row" style="gap: 10px; flex-wrap: wrap;">
+            <button :disabled="answeredCount === 0 || clarify.loading" @click="submitAnswers(true)">
+              {{ clarify.loading ? `恢复中… ${elapsed}s` : `回答并继续（已选 ${answeredCount}/${pendingClarifications.length}）` }}
+            </button>
+            <button
+              class="ghost"
+              :disabled="answeredCount === 0 || clarify.loading"
+              @click="submitAnswers(false)">
+              只保存答复，先不跑
+            </button>
+            <button v-if="clarify.loading" class="ghost" @click="cancelTask">取消</button>
+          </div>
+          <p class="small muted" style="margin: 8px 0 0;">
+            答复不必一次答完 —— 澄清项按<strong>数据覆盖率降序</strong>排，从上往下答，
+            中途停下也已覆盖绝大部分数据。恢复走
+            <code>PipelineMode.CLARIFY_RESUME</code>：画像与方案从 checkpoint 读回，
+            首轮已成功的步骤不重跑，因此这一轮<strong>不再发生画像与规划两次模型调用</strong>。
+          </p>
+          <p v-if="clarify.error" class="small error" style="margin: 6px 0 0;">{{ clarify.error }}</p>
+        </div>
       </template>
+      <p v-else-if="task.data.clarifyOutcomes?.length" class="small muted">
+        澄清项都已答复，没有剩下待答的了。
+      </p>
       <p v-else class="small muted">本次没有澄清项：需求涉及的决策点在知识库里都有唯一依据。</p>
+
+      <template v-if="task.data.clarifyOutcomes?.length">
+        <h4 class="sub">本轮答复的归一结果</h4>
+        <p class="small muted" style="margin: 0 0 8px;">
+          「医生答了」和「系统用得上」是两件事：归一不出确定性参数的答复照样落库，
+          但对应步骤不执行，原因写在这张表里。
+        </p>
+        <div class="scroll-x">
+          <table class="data">
+            <thead>
+              <tr><th>决策点</th><th>答复</th><th>归一机器码</th><th>采纳</th><th>依据来源</th><th>未采纳的原因</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in task.data.clarifyOutcomes" :key="row.clarifyCode">
+                <td>{{ row.topic }}</td>
+                <td>{{ row.answer }}</td>
+                <td><code>{{ row.answerAction || '—' }}</code></td>
+                <td :class="row.accepted ? 'evidence-ok' : 'evidence-bad'">
+                  {{ row.accepted === null ? '未归一' : (row.accepted ? '是' : '否') }}
+                </td>
+                <td class="small">
+                  {{ row.accepted ? (row.knowledgeBacked ? '院内规范' : '医生自决') : '—' }}
+                </td>
+                <td class="small muted">{{ row.rejectReason || '' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
 
       <!-- ④ 校验 -->
       <h3 class="sec">④ 校验</h3>
@@ -531,6 +635,7 @@ onMounted(async () => {
 
 <style scoped>
 .sec-first { margin-top: 4px; }
+.sub { margin: 16px 0 6px; font-size: 14px; }
 .sec {
   margin: 22px 0 8px;
   padding-top: 14px;
@@ -578,11 +683,29 @@ onMounted(async () => {
 }
 .cover-fill { height: 100%; background: var(--seq-450); border-radius: 3px; }
 .options { margin: 6px 0 4px; padding-left: 22px; color: var(--ink-2); }
-.resume-note { border-top: 1px dashed var(--grid); padding-top: 8px; margin-top: 10px; }
+
+.answer-options { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 4px; }
+.answer-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+}
+.answer-option:hover { background: var(--surface-2); }
+.answer-option code { margin-left: auto; }
+
+.resume-box {
+  border-top: 1px dashed var(--grid);
+  padding-top: 10px;
+  margin-top: 10px;
+}
 
 .contradiction { color: var(--status-critical); }
 
 .evidence-ok { color: var(--ink-1); }
+.evidence-user { color: var(--status-warning); }
 .evidence-none { color: var(--ink-muted); }
 .evidence-pending { color: var(--ink-muted); font-style: italic; }
 .evidence-bad { color: var(--status-critical); font-weight: 600; }

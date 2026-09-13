@@ -32,6 +32,7 @@
         <lombok.version>1.18.40</lombok.version>
 
         <maven-compiler.version>3.8.1</maven-compiler.version>
+        <maven-surefire.version>3.2.5</maven-surefire.version>
         <maven-resources.version>3.2.0</maven-resources.version>
         <flatten-maven.version>1.4.1</flatten-maven.version>
     </properties>
@@ -120,6 +121,18 @@
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <!--
+                  默认绑定的 surefire 2.12.4 不认 JUnit 5。父 pom 不是
+                  spring-boot-starter-parent，插件版本也得自己钉。
+                -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire.version}</version>
+                <configuration>
+                    <argLine>-Dfile.encoding=UTF-8</argLine>
                 </configuration>
             </plugin>
             <plugin>
